@@ -1,8 +1,11 @@
+// vite.config.ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 
-// https://vite.dev/config/
 export default defineConfig({
-  base: '/english-tutor-grammar/',
   plugins: [react()],
+  base: '/english-tutor-grammar/',        // <<< RẤT QUAN TRỌNG!!!
+  build: {
+    outDir: 'build', // mặc định của Vite + React mới là "dist", bạn đang dùng "build"
+  }
 })
