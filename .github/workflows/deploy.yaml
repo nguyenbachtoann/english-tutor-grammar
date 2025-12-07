@@ -2,9 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]    # hoặc master tùy bạn đang dùng
+    branches: [ master ]
   workflow_dispatch:
 
+# BẮT BUỘC PHẢI CÓ TỪ 2024 TRỞ ĐI
 permissions:
   contents: read
   pages: write
@@ -13,11 +14,17 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
+    # THÊM 2 DÒNG NÀY LÀ XONG
+    environment:
+      name: github-pages
+      url: https://nguyenbachtoann.github.io/english-tutor-grammar/
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -28,8 +35,6 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          VITE_BASE: /english-tutor-grammar/   # không cần cũng được nếu có base trong config
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -37,5 +42,4 @@ jobs:
           path: ./build
 
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v4
