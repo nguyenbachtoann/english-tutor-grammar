@@ -126,7 +126,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
 
 // --- AI SERVICE (GEMINI) ---
 const callGemini = async (prompt: string, systemInstruction: string = ""): Promise<string> => {
-  const apiKey = "AIzaSyA4TTNCO7YXiyICR2U-VxY3Vl3pvDYdxH8"; // System will inject the key
+  const apiKey = ""; // System will inject the key
 
   const makeRequest = async (retryCount = 0): Promise<string> => {
     try {
