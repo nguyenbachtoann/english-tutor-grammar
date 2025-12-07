@@ -24,15 +24,15 @@ import {
 // ==========================================
 // CẤU HÌNH SERVER BACKEND
 // ==========================================
+// Nếu bạn chạy local, hãy đổi thành "http://localhost:5000"
 const BACKEND_URL = "https://english-tutor-grammar-server.onrender.com";
 
 /* GRAMMARFLOW - FINAL PRODUCTION VERSION
   ------------------------------
   Updates:
-  - Improved Error Handling for Network Issues (Offline vs Server Error).
-  - Integration with Proxy Server.
-  - Full Vietnamese Localization.
-  - Dynamic Theming.
+  - FIXED: Logic parsing response from Server (reading 'result' instead of 'text').
+  - Improved Error Handling.
+  - NEW: Beautiful App Icon (SVG) & Dynamic Favicon/Apple Touch Icon generation.
 */
 
 // --- TYPES & INTERFACES ---
@@ -85,6 +85,7 @@ interface ThemeConfig {
   ring: string;
   shadow: string;
   accent: string;
+  hex: string; // Màu Hex dùng cho việc vẽ Icon động
 }
 
 // --- MOCK DATA & CONSTANTS ---
@@ -104,7 +105,8 @@ const THEMES: Record<string, ThemeConfig> = {
     button: 'bg-emerald-600 hover:bg-emerald-700',
     ring: 'focus:ring-emerald-500',
     shadow: 'shadow-emerald-200',
-    accent: 'text-emerald-600'
+    accent: 'text-emerald-600',
+    hex: '#10b981' // emerald-500
   },
   'Intermediate': {
     id: 'Intermediate',
@@ -118,7 +120,8 @@ const THEMES: Record<string, ThemeConfig> = {
     button: 'bg-blue-600 hover:bg-blue-700',
     ring: 'focus:ring-blue-500',
     shadow: 'shadow-blue-200',
-    accent: 'text-blue-600'
+    accent: 'text-blue-600',
+    hex: '#2563eb' // blue-600
   },
   'Advanced': {
     id: 'Advanced',
@@ -132,7 +135,8 @@ const THEMES: Record<string, ThemeConfig> = {
     button: 'bg-rose-600 hover:bg-rose-700',
     ring: 'focus:ring-rose-500',
     shadow: 'shadow-rose-200',
-    accent: 'text-rose-600'
+    accent: 'text-rose-600',
+    hex: '#e11d48' // rose-600
   }
 };
 
@@ -154,6 +158,105 @@ const FALLBACK_QUIZ: QuizData = {
   options: ["listen", "listening", "listens", "listened"],
   correct: 0,
   explanation: "Present Simple dùng cho thói quen hàng ngày."
+};
+
+// --- LOGO COMPONENT & HOOKS ---
+
+// 1. Logo SVG Component
+const GrammarFlowLogo: React.FC<{ className?: string, color?: string }> = ({ className = "w-8 h-8", color = "currentColor" }) => (
+  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M50 15C30.67 15 15 30.67 15 50C15 69.33 30.67 85 50 85C66.15 85 79.76 74.07 83.56 59.5"
+      stroke={color}
+      strokeWidth="10"
+      strokeLinecap="round"
+    />
+    <path
+      d="M85 50C85 30.67 69.33 15 50 15"
+      stroke={color}
+      strokeWidth="10"
+      strokeLinecap="round"
+      strokeDasharray="10 10"
+    />
+    <circle cx="50" cy="50" r="18" fill={color} />
+    <path
+      d="M65 50L85 50L75 65"
+      fill={color}
+      stroke={color}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+// 2. Hook to generate Dynamic Favicon & Apple Touch Icon
+const useDynamicAppIcon = (themeHex: string) => {
+  useEffect(() => {
+    const updateIcons = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 192;
+      canvas.height = 192;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw Background (Rounded Square)
+      ctx.fillStyle = themeHex;
+      ctx.beginPath();
+      // Draw a rounded rect logic simplified for icon
+      const r = 40;
+      const w = 192;
+      const h = 192;
+      ctx.moveTo(r, 0);
+      ctx.lineTo(w - r, 0);
+      ctx.quadraticCurveTo(w, 0, w, r);
+      ctx.lineTo(w, h - r);
+      ctx.quadraticCurveTo(w, h, w - r, h);
+      ctx.lineTo(r, h);
+      ctx.quadraticCurveTo(0, h, 0, h - r);
+      ctx.lineTo(0, r);
+      ctx.quadraticCurveTo(0, 0, r, 0);
+      ctx.fill();
+
+      // Draw "G" Logo or Symbol in White
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 20;
+      ctx.lineCap = 'round';
+
+      // Draw simplified G/Arrow shape
+      ctx.beginPath();
+      ctx.arc(96, 96, 50, 0.1 * Math.PI, 1.9 * Math.PI, false); // G arc
+      ctx.stroke();
+
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(120, 96);
+      ctx.lineTo(96, 96);
+      ctx.stroke();
+
+      // Convert to Data URI
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // Update Favicon
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = dataUrl;
+
+      // Update Apple Touch Icon
+      let appleLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+      if (!appleLink) {
+        appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        document.getElementsByTagName('head')[0].appendChild(appleLink);
+      }
+      appleLink.href = dataUrl;
+    };
+
+    updateIcons();
+  }, [themeHex]);
 };
 
 // --- UTILS ---
@@ -233,7 +336,11 @@ const callGemini = async (prompt: string, systemInstruction: string = "", jsonMo
       }
 
       const data = await response.json();
-      return { text: data.text || "" };
+
+      // Server trả về { result: "...", raw: ... }
+      const aiResponseText = data.result || data.text || "";
+
+      return { text: aiResponseText };
 
     } catch (error: any) {
       console.warn(`Attempt ${retryCount + 1} failed:`, error);
@@ -805,6 +912,9 @@ export default function App() {
 
   const currentTheme = THEMES[level];
 
+  // Kích hoạt tính năng Dynamic App Icon
+  useDynamicAppIcon(currentTheme.hex);
+
   useEffect(() => {
     const timer = setTimeout(() => setShowDaily(true), 1500);
     return () => clearTimeout(timer);
@@ -836,8 +946,11 @@ export default function App() {
 
       {view !== 'lesson' && (
         <div className="bg-white pt-10 pb-4 px-6 sticky top-0 z-10 border-b border-gray-100 flex justify-between items-center shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 ${currentTheme.primary} rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md`}>G</div>
+          <div className="flex items-center gap-3">
+            {/* LOGO MỚI */}
+            <div className={`w-10 h-10 ${currentTheme.secondary} rounded-xl flex items-center justify-center shadow-sm`}>
+               <GrammarFlowLogo className={`w-7 h-7 ${currentTheme.text}`} />
+            </div>
             <h1 className="font-bold text-xl text-gray-800 tracking-tight">GrammarFlow</h1>
           </div>
           <div className="flex items-center gap-3">
